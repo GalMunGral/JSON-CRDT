@@ -1,0 +1,22 @@
+{
+  "name": "json-cmrdt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GalMunGral/JSON-CmRDT.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GalMunGral/JSON-CmRDT/issues"
+  },
+  "homepage": "https://github.com/GalMunGral/JSON-CmRDT#readme",
+  "devDependencies": {
+    "typescript": "^4.9.4"
+  }
+}
