@@ -1,4 +1,5 @@
 export type ReplicaId = string;
+export type ActionId = string;
 
 export enum Causality {
   BEFORE = -1,
@@ -6,30 +7,52 @@ export enum Causality {
   AFTER = 1,
 }
 
+function parseActionId(s: string): [ReplicaId, number] {
+  const i = s.indexOf(":");
+  const replicaId = s.slice(0, i);
+  const eventId = Number(s.slice(i + 1));
+  return [replicaId, eventId];
+}
+
 export class VectorClock {
-  constructor(private events: Record<ReplicaId, number> = {}) {}
+  constructor(
+    private owner: ReplicaId,
+    private lastDelivered: Record<ReplicaId, number> = {}
+  ) {}
 
-  public toJSON() {
-    return this.events;
+  public static fromString(s: string): VectorClock {
+    const obj = JSON.parse(s);
+    Object.setPrototypeOf(obj, VectorClock.prototype);
+    return obj;
   }
 
-  public advance(replicaId: ReplicaId) {
-    this.events[replicaId]++;
+  public toActionId(): ActionId {
+    return `${this.owner}:${this.lastDelivered[this.owner]}`;
   }
 
-  public get keys(): Array<ReplicaId> {
-    return Object.keys(this.events);
+  public dependsOn(actionId: ActionId) {
+    const [replicaId, eventId] = parseActionId(actionId);
+    return eventId <= this.lastDelivered[replicaId];
   }
 
-  public get(replicaId: ReplicaId) {
-    return this.events[replicaId] ?? 0;
+  public advance(): void {
+    this.lastDelivered[this.owner]++;
+  }
+
+  public get(replicaId: ReplicaId): number {
+    return this.lastDelivered[replicaId] ?? 0;
+  }
+
+  public get receivedFrom(): Array<ReplicaId> {
+    return Object.keys(this.lastDelivered);
   }
 
   public compare(other: VectorClock): Causality {
     let isBefore = true;
     let isAfter = true;
 
-    const replicas = new Set([...this.keys, ...other.keys]);
+    const replicas = new Set([...this.receivedFrom, ...other.receivedFrom]);
+
     for (const id of replicas) {
       const received1 = this.get(id);
       const received2 = other.get(id);

@@ -1,15 +1,13 @@
 import { PassThrough, Writable } from "stream";
 import { v4 as uuid } from "uuid";
-import { Cursor, Mutation, Operation } from "./Operation";
+import { Cursor, Mutation, Operation } from "./JSON";
 import { VectorClock } from "./VectorClock";
 import axios from "axios";
 
 type ReplicaId = string;
 
 class Replica {
-  constructor(public id: ReplicaId, private stream: Writable) {
-    stream.write(`event:connect\ndata:${id}\n\n`);
-  }
+  constructor(public id: ReplicaId, private stream: Writable) {}
   public send(op: Operation) {
     this.stream.write(`event:operation\ndata:${JSON.stringify(op)}\n\n`);
   }
@@ -19,8 +17,7 @@ export class BroadcastServer {
   private replicas: Array<Replica> = [];
   private history: Array<Operation> = [];
 
-  public join(stream: Writable) {
-    const replicaId = uuid();
+  public join(replicaId: string, stream: Writable) {
     const replica = new Replica(replicaId, stream);
     this.replicas.push(replica);
     for (const op of this.history) {
@@ -39,9 +36,11 @@ export class BroadcastServer {
 }
 
 export class BroadcastClient {
-  private eventSource = new EventSource("/broadcast");
-  private replicaId: ReplicaId = "";
-  private clock = new VectorClock();
+  private replicaId: ReplicaId = uuid();
+  private eventSource = new EventSource(
+    `/broadcast?replicaId=${this.replicaId}`
+  );
+  private clock = new VectorClock(this.replicaId);
   private pending = new Set<Operation>();
   private subscribers = new Set<(op: Operation) => void>();
 
@@ -64,7 +63,7 @@ export class BroadcastClient {
   }
 
   public send(cursor: Cursor, mutation: Mutation) {
-    this.clock.advance(this.replicaId);
+    this.clock.advance();
     const op: Operation = {
       replicaId: this.replicaId,
       timestamp: this.clock,
