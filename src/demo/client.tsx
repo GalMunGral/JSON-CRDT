@@ -85,6 +85,21 @@ const InsertKey: FC<{ cursor: Cursor }> = ({ cursor }) => {
   );
 };
 
+const Delete: FC<{ cursor: Cursor }> = ({ cursor }) => {
+  return (
+    <button
+      onClick={() => {
+        client.send({
+          type: "delete",
+          cursor,
+        });
+      }}
+    >
+      delete
+    </button>
+  );
+};
+
 const Json: FC<{ cursor: Cursor; value: CFValueHolder }> = ({
   cursor,
   value,
@@ -103,6 +118,7 @@ const Json: FC<{ cursor: Cursor; value: CFValueHolder }> = ({
           ))}
           <InsertKey cursor={cursor} />
         </div>
+        <Delete cursor={cursor} />
       </div>
     );
   }
@@ -120,6 +136,7 @@ const Json: FC<{ cursor: Cursor; value: CFValueHolder }> = ({
           ))}
           <AddKey cursor={cursor} />
         </div>
+        <Delete cursor={cursor} />
       </div>
     );
   }
@@ -141,6 +158,7 @@ const Json: FC<{ cursor: Cursor; value: CFValueHolder }> = ({
             });
           }}
         />
+        <Delete cursor={cursor} />
       </div>
     );
   }

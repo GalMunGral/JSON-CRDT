@@ -20,6 +20,7 @@ export class CFRegister implements CFValue {
   }
 
   getChildren(): Array<CFValueHolder> {
-    throw new Error(`registers only hold primitive data`);
+    return [];
+    // throw new Error(`registers only hold primitive data`);
   }
 }
