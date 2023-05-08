@@ -3,8 +3,8 @@ import Koa from "koa";
 import Router from "@koa/router";
 import serve from "koa-static";
 import bodyParser from "koa-bodyparser";
-import { BroadcastServer } from "../crdt-json/CausalBroadcast";
-import { Operation } from "../crdt-json/JSON";
+import { BroadcastServer } from "../crdt-json/Broadcast";
+import { IssuedOperation, Operation } from "../crdt-json/JSON";
 
 const app = new Koa();
 const router = new Router();
@@ -15,11 +15,13 @@ router.get("/broadcast", (ctx) => {
   ctx.set("Content-Type", "text/event-stream");
   ctx.set("Cache-Control", "no-cache");
   ctx.set("Connection", "keep-alive");
-  broadcaster.join(ctx.params["replicaId"], (ctx.body = new PassThrough()));
+  const stream = new PassThrough();
+  broadcaster.join(ctx.query["replicaId"] as string, stream);
+  ctx.body = stream;
 });
 
 router.post("/event", (ctx) => {
-  const event = ctx.request.body as Operation;
+  const event = ctx.request.body as IssuedOperation;
   broadcaster.publish(event);
   ctx.body = "";
 });

@@ -1,72 +1,53 @@
 export type ReplicaId = string;
-export type ActionId = string;
-
-export enum Causality {
-  BEFORE = -1,
-  CONCURRENT = 0,
-  AFTER = 1,
-}
-
-function parseActionId(s: string): [ReplicaId, number] {
-  const i = s.indexOf(":");
-  const replicaId = s.slice(0, i);
-  const eventId = Number(s.slice(i + 1));
-  return [replicaId, eventId];
-}
 
 export class VectorClock {
   constructor(
-    private owner: ReplicaId,
-    private lastDelivered: Record<ReplicaId, number> = {}
+    public senderId: ReplicaId,
+    private eventsDelivered: Record<ReplicaId, number> = {}
   ) {}
 
-  public static fromString(s: string): VectorClock {
-    const obj = JSON.parse(s);
+  static from(obj: unknown): VectorClock {
     Object.setPrototypeOf(obj, VectorClock.prototype);
-    return obj;
+    return obj as VectorClock;
   }
 
-  public toActionId(): ActionId {
-    return `${this.owner}:${this.lastDelivered[this.owner]}`;
+  public get(replicaId: ReplicaId) {
+    return this.eventsDelivered[replicaId] ?? 0;
   }
 
-  public dependsOn(actionId: ActionId) {
-    const [replicaId, eventId] = parseActionId(actionId);
-    return eventId <= this.lastDelivered[replicaId];
+  private clone(): VectorClock {
+    return new VectorClock(this.senderId, { ...this.eventsDelivered });
   }
 
-  public advance(): void {
-    this.lastDelivered[this.owner]++;
+  public tick(): VectorClock {
+    const res = this.clone();
+    res.eventsDelivered[this.senderId] = this.get(this.senderId) + 1;
+    return res;
   }
 
-  public get(replicaId: ReplicaId): number {
-    return this.lastDelivered[replicaId] ?? 0;
-  }
-
-  public get receivedFrom(): Array<ReplicaId> {
-    return Object.keys(this.lastDelivered);
-  }
-
-  public compare(other: VectorClock): Causality {
-    let isBefore = true;
-    let isAfter = true;
-
-    const replicas = new Set([...this.receivedFrom, ...other.receivedFrom]);
-
-    for (const id of replicas) {
-      const received1 = this.get(id);
-      const received2 = other.get(id);
-      if (received1 < received2) isAfter = false;
-      if (received1 > received2) isBefore = false;
+  public update(other: VectorClock): VectorClock {
+    const res = this.clone();
+    for (const [id, n] of Object.entries(other.eventsDelivered)) {
+      res.eventsDelivered[id] = Math.max(res.eventsDelivered[id] ?? 0, n);
     }
+    return res;
+  }
 
-    if (isBefore && isAfter)
-      throw new Error(`No two events can have the same vector clock!`);
+  public happensBefore(other: VectorClock): boolean {
+    return (
+      this.eventsDelivered[this.senderId] <=
+      other.eventsDelivered[this.senderId]
+    );
+  }
 
-    return isBefore
-      ? Causality.BEFORE
-      : isAfter
-      ? Causality.AFTER
-      : Causality.CONCURRENT;
+  public isConcurrentWith(other: VectorClock): boolean {
+    return !this.happensBefore(other) && !other.happensBefore(this);
+  }
+
+  public lessThan(other: VectorClock): boolean {
+    return (
+      this.happensBefore(other) ||
+      (this.isConcurrentWith(other) && this.senderId < other.senderId)
+    );
   }
 }
